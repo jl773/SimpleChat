@@ -4,7 +4,11 @@ package edu.seg2105.edu.server.backend;
 // license found at www.lloseng.com 
 
 
-import ocsf.server.*;
+import java.io.*;
+
+import ocsf.server.AbstractServer;
+import ocsf.server.ConnectionToClient;
+import edu.seg2105.client.common.*;
 
 /**
  * This class overrides some of the methods in the abstract 
@@ -23,6 +27,7 @@ public class EchoServer extends AbstractServer
    * The default port to listen on.
    */
   final public static int DEFAULT_PORT = 5555;
+  ChatIF serverUI;
   
   //Constructors ****************************************************
   
@@ -35,23 +40,95 @@ public class EchoServer extends AbstractServer
   {
     super(port);
   }
+  
+  public EchoServer(int port, ChatIF serverUI) throws IOException
+  {
+    super(port);
+    this.serverUI = serverUI;
+  }
 
   
   //Instance methods ************************************************
   
-  /**
-   * This method handles any messages received from the client.
-   *
-   * @param msg The message received from the client.
-   * @param client The connection from which the message originated.
-   */
   public void handleMessageFromClient
     (Object msg, ConnectionToClient client)
   {
-    System.out.println("Message received: " + msg + " from " + client);
-    this.sendToAllClients(msg);
+	  
+	  if (msg.toString().startsWith("#login ")) {
+		  if (client.getInfo("loginID") != null) {
+			  try {
+				  client.sendToClient("You are already logged in.");
+			  } catch (IOException e) {}
+			  
+			  return;
+	      } else {
+	    	  this.sendToAllClients("Message received: " + msg + " from null");
+	    	  this.sendToAllClients(msg.toString().substring(7) + " has logged on.");
+	      }
+	      
+	      client.setInfo("loginID", msg.toString().substring(7));
+	  } else {
+	    	if (client.getInfo("loginID") == null) {
+	    		try {
+	    			client.sendToClient("You need to login before you can chat.");
+	    			client.close();
+	    		} catch (IOException e) {}
+	    		
+	    		return;
+	    	}
+	      
+		    //System.out.println("Message received: " + msg + " from " + client);
+		    this.sendToAllClients("Message received: " + msg + " from " + client);
+	  }
+	  
+	  //System.out.println("Message received: " + msg + " from " + client);
+	  //this.sendToAllClients("Message received: " + msg + " from " + client);
   }
-    
+  
+  public void handleMessageFromServerUI(String message)
+  {
+	  if (message.charAt(0) == '#') {
+		  if (message.equalsIgnoreCase("#quit")) {
+			  quit();
+		  } else if (message.equalsIgnoreCase("#stop")) {
+			  stopListening();
+			  serverStopped();
+		  } else if (message.equalsIgnoreCase("#close")) {
+			  try {
+				  close();
+			  } catch(IOException e) {}
+			  
+		  } else if (message.toLowerCase().startsWith("#setport")) {
+	          if (getNumberOfClients() == 0 && !isListening()) {
+	        	  int newPort = Integer.parseInt(message.substring(9));
+	        	  setPort(newPort);
+	        	  serverUI.display("Server port changed to " + getPort());
+	          } else {
+	        	  serverUI.display("The server is not closed. Port cannot be changed.");
+	          }
+        } else if (message.equalsIgnoreCase("#start")) {
+        	if (!isListening()) {
+        		try {
+        			serverStarted();
+        			listen();
+        		} catch(Exception ex) {
+        			serverUI.display("ERROR: Could not listen for clients.");
+        		}
+        	  
+        	} else {
+        		serverUI.display("The server is already listening for clients.");
+        	  
+        	}
+        } else if (message.equalsIgnoreCase("#getport")) {
+        	serverUI.display("Currently port: " + Integer.toString(getPort()));
+        }
+	  } else {
+    	serverUI.display("SERVER MSG> " + message);
+      this.sendToAllClients("SERVER MSG> " + message);
+      
+    }
+  }
+  
   /**
    * This method overrides the one in the superclass.  Called
    * when the server starts listening for connections.
@@ -72,6 +149,32 @@ public class EchoServer extends AbstractServer
       ("Server has stopped listening for connections.");
   }
   
+  protected void clientConnected(ConnectionToClient client) {
+    String message = "A client has connected.";
+    this.sendToAllClients(message);
+    System.out.println(message);
+    //serverUI.display(message);
+  }
+  
+  synchronized protected void clientDisconnected(ConnectionToClient client) {
+    String message = client.getInfo("loginID").toString() + " has disconnected.";
+    this.sendToAllClients(message);
+    System.out.println(message);
+  }
+  
+  synchronized protected void clientException(ConnectionToClient client, Throwable exception) {
+    String message = client.getInfo("loginID").toString() + " has disconnected.";
+    this.sendToAllClients(message);
+    System.out.println(message);
+  }
+  
+  public void quit()
+  {
+    try {
+      close();
+    } catch(IOException e) {}
+    System.exit(0);
+  }
   
   //Class methods ***************************************************
   
@@ -103,7 +206,8 @@ public class EchoServer extends AbstractServer
     } 
     catch (Exception ex) 
     {
-      System.out.println("ERROR - Could not listen for clients!");
+    	System.out.print(ex);
+      System.out.println("ERROR: Could not listen for clients.");
     }
   }
 }

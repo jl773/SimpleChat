@@ -3,11 +3,11 @@ package edu.seg2105.client.ui;
 // "Object Oriented Software Engineering" and is issued under the open-source
 // license found at www.lloseng.com 
 
-import java.io.*;
+import java.io.IOException;
 import java.util.Scanner;
 
 import edu.seg2105.client.backend.ChatClient;
-import edu.seg2105.client.common.*;
+import edu.seg2105.client.common.ChatIF;
 
 /**
  * This class constructs the UI for a chat client.  It implements the
@@ -50,16 +50,17 @@ public class ClientConsole implements ChatIF
    * @param host The host to connect to.
    * @param port The port to connect on.
    */
-  public ClientConsole(String host, int port) 
+  public ClientConsole(String loginID, String host, int port) 
   {
     try 
     {
-      client= new ChatClient(host, port, this);
+      client = new ChatClient(loginID, host, port, this);
       
       
     } 
-    catch(IOException exception) 
+    catch(IOException ex) 
     {
+    	System.out.print(ex);
       System.out.println("Error: Can't setup connection!"
                 + " Terminating client.");
       System.exit(1);
@@ -76,24 +77,19 @@ public class ClientConsole implements ChatIF
    * This method waits for input from the console.  Once it is 
    * received, it sends it to the client's message handler.
    */
-  public void accept() 
-  {
-    try
-    {
+  public void accept() {
+	  try {
 
-      String message;
-
-      while (true) 
-      {
-        message = fromConsole.nextLine();
-        client.handleMessageFromClientUI(message);
+	      String message;
+	
+	      while (true) {
+	    	  message = fromConsole.nextLine();
+	    	  client.handleMessageFromClientUI(message);
+	      }
+      
+	  } catch (Exception ex) {
+		  System.out.println("ERROR while reading from console.");
       }
-    } 
-    catch (Exception ex) 
-    {
-      System.out.println
-        ("Unexpected error while reading from console!");
-    }
   }
 
   /**
@@ -102,9 +98,8 @@ public class ClientConsole implements ChatIF
    *
    * @param message The string to be displayed.
    */
-  public void display(String message) 
-  {
-    System.out.println("> " + message);
+  public void display(String message) {
+	  System.out.println("> " + message);
   }
 
   
@@ -118,17 +113,27 @@ public class ClientConsole implements ChatIF
   public static void main(String[] args) 
   {
     String host = "";
+    String loginID = "";
+    String portstr = "";
+    int port = DEFAULT_PORT;
 
 
     try
     {
-      host = args[0];
+      loginID = args[0];
+      host = args[1];
+      portstr = args[2];
+      
+      
+      if (!portstr.equals("")) {
+    	  port = Integer.parseInt(args[2]);
+      }
     }
     catch(ArrayIndexOutOfBoundsException e)
     {
       host = "localhost";
     }
-    ClientConsole chat= new ClientConsole(host, DEFAULT_PORT);
+    ClientConsole chat= new ClientConsole(loginID, host, port);
     chat.accept();  //Wait for console data
   }
 }
